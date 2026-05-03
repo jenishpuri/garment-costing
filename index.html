@@ -2887,24 +2887,36 @@ Rules:
       })
     })
     .then(function(res) {
-      if (res.status === 400) {
-        return res.json().then(function(e){
-          var msg = (e.error && e.error.message) || 'Bad request';
-          if (msg.toLowerCase().includes('key')) { localStorage.removeItem('cc_gemini_key'); }
-          throw new Error(msg.includes('key') ? 'Invalid API key. Please re-enter your Gemini key.' : msg);
-        });
-      }
-      if (res.status === 403) { localStorage.removeItem('cc_gemini_key'); throw new Error('API key rejected. Please get a new key from aistudio.google.com'); }
-      if (res.status === 429) throw new Error('Free quota reached. Try again in a minute or tomorrow.');
-      if (!res.ok) {
-        return res.json().then(function(e) {
-          var msg = (e.error && e.error.message) ? e.error.message : ('Error ' + res.status);
-          throw new Error(msg);
-        }).catch(function(parseErr) {
-          if (parseErr.message && parseErr.message.includes('Error ')) throw parseErr;
-          throw new Error('Error ' + res.status + '. Check internet or API key.');
-        });
-      }
+      // Read raw response to get EXACT error from Google
+      return res.text().then(function(raw) {
+        var data;
+        try { data = JSON.parse(raw); } catch(e) { data = {}; }
+        if (!res.ok) {
+          var msg = '';
+          if (data.error && data.error.message) {
+            msg = data.error.message;
+          } else {
+            msg = 'HTTP ' + res.status;
+          }
+          // Handle specific errors
+          if (res.status === 400 && msg.toLowerCase().includes('key')) {
+            localStorage.removeItem('cc_gemini_key');
+            throw new Error('Invalid API key. Get a new one from aistudio.google.com/app/apikey');
+          }
+          if (res.status === 403 || msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('api key')) {
+            localStorage.removeItem('cc_gemini_key');
+            throw new Error('Key rejected: ' + msg);
+          }
+          if (res.status === 429) {
+            throw new Error('Quota reached. Wait 1 minute and try again.');
+          }
+          if (res.status === 404) {
+            throw new Error('404 Error: Gemini API not enabled. Please go to aistudio.google.com/app/apikey and create a NEW API key (delete the old one first).');
+          }
+          throw new Error('Google error ' + res.status + ': ' + msg);
+        }
+        return data;
+      });
     })
     .then(function(data) {
       clearTimeout(scanTimeout);
@@ -2926,7 +2938,17 @@ Rules:
       var sp = document.getElementById('scanSpinner');
       var st = document.getElementById('scanStatusText');
       if (sp) sp.style.display = 'none';
-      if (st) st.textContent = err.message || 'Network error. Check connection.';
+      var errMsg = err.message || 'Network error. Check connection.';
+      if (st) {
+        if (errMsg.includes('aistudio.google.com')) {
+          st.innerHTML = errMsg.replace(
+            'aistudio.google.com/app/apikey',
+            '<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent);text-decoration:underline">aistudio.google.com/app/apikey</a>'
+          );
+        } else {
+          st.textContent = errMsg;
+        }
+      }
       if (err.message && err.message.toLowerCase().includes('key')) {
         var b = document.getElementById('apiKeyBanner'); if (b) b.style.display = 'block';
       }
