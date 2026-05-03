@@ -2870,8 +2870,11 @@ Rules:
     var scanAbort = new AbortController();
     var scanTimeout = setTimeout(function() {
       scanAbort.abort();
-    }, 30000); // 30 second timeout
-    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' + getApiKey(), {
+    }, 30000);
+    // Try gemini-1.5-flash (stable, free, vision-capable)
+    var geminiModel = 'gemini-1.5-flash';
+    var geminiEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' + geminiModel + ':generateContent?key=' + getApiKey();
+    fetch(geminiEndpoint, {
       method: 'POST',
       signal: scanAbort.signal,
       headers: { 'Content-Type': 'application/json' },
@@ -2902,7 +2905,6 @@ Rules:
           throw new Error('Error ' + res.status + '. Check internet or API key.');
         });
       }
-      return res.json();
     })
     .then(function(data) {
       clearTimeout(scanTimeout);
