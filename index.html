@@ -1212,7 +1212,7 @@
 </div>
 
     <div class="sidebar-footer">
-      <div class="sidebar-version">v3.1 · Cloud Sync</div>
+      <div class="sidebar-version">v4.2 · Class Creations</div>
     </div>
   </aside>
 
@@ -3140,6 +3140,13 @@ function checkAuth() {
       if (user) {
         currentUser = { username: user.username, role: user.role };
         showApp();
+        // Extra safety: re-apply admin sections after small delay
+        setTimeout(function() {
+          if (currentUser && currentUser.role === 'admin') {
+            showAdminSections(true);
+            loadAdminCosts();
+          }
+        }, 300);
         return;
       }
     }
@@ -3372,9 +3379,15 @@ checkAuth();
 // ═══ ADMIN COST & MARGIN FEATURES ═══════════════════════════
 
 function showAdminSections(isAdmin) {
+  // Use both class AND direct style for maximum reliability
   document.querySelectorAll('.admin-section').forEach(function(el) {
-    if (isAdmin) el.classList.add('admin-visible');
-    else el.classList.remove('admin-visible');
+    if (isAdmin) {
+      el.classList.add('admin-visible');
+      el.style.display = 'block';
+    } else {
+      el.classList.remove('admin-visible');
+      el.style.display = 'none';
+    }
   });
 }
 
@@ -3541,9 +3554,13 @@ showApp = function() {
   _origSA();
   var isAdmin = currentUser && currentUser.role==='admin';
   showAdminSections(isAdmin);
-  // Note: loadAdminCosts is called in pageInit and here after short delay
-  if (isAdmin) setTimeout(function(){ loadAdminCosts(); }, 150);
-  recalcAdmin();
+  if (isAdmin) {
+    setTimeout(function(){
+      showAdminSections(true); // re-apply after DOM settles
+      loadAdminCosts();
+      recalcAdmin();
+    }, 200);
+  }
 };
 
 // Clear admin fields when sheet is cleared
